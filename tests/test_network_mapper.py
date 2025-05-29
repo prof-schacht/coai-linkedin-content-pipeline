@@ -34,6 +34,9 @@ class TestNetworkMapper:
     @pytest.fixture
     def setup_test_db(self):
         """Setup test database."""
+        # Import all models to ensure they're registered
+        from src.models.paper import Paper
+        from src.models.x_post import XPost
         Base.metadata.create_all(bind=engine)
         yield
         Base.metadata.drop_all(bind=engine)
@@ -147,6 +150,9 @@ class TestExpertScorer:
     @pytest.fixture
     def setup_test_db(self):
         """Setup test database."""
+        # Import all models to ensure they're registered
+        from src.models.paper import Paper
+        from src.models.x_post import XPost
         Base.metadata.create_all(bind=engine)
         yield
         Base.metadata.drop_all(bind=engine)
@@ -193,6 +199,7 @@ class TestExpertScorer:
             company="Anthropic",
             position="Senior AI Safety Researcher and Speaker",
             mutual_connections=30,
+            mention_count=0,
             matched_author_names=[
                 {"arxiv_id": "2312.00001", "title": "AI Safety Paper"}
             ]
@@ -213,6 +220,9 @@ class TestLinkedInConnectionModel:
     @pytest.fixture
     def setup_test_db(self):
         """Setup test database."""
+        # Import all models to ensure they're registered
+        from src.models.paper import Paper
+        from src.models.x_post import XPost
         Base.metadata.create_all(bind=engine)
         yield
         Base.metadata.drop_all(bind=engine)

@@ -165,14 +165,18 @@ class ExpertScorer:
             score = min(5.0 + (num_papers * 1.5), 10.0)
             
             # Check paper quality (would need to query papers)
-            with get_db() as db:
-                for paper_info in connection.matched_author_names[:5]:
-                    paper = db.query(Paper).filter_by(
-                        arxiv_id=paper_info.get('arxiv_id')
-                    ).first()
-                    
-                    if paper and paper.relevance_score >= 0.8:
-                        score += 0.5
+            try:
+                with get_db() as db:
+                    for paper_info in connection.matched_author_names[:5]:
+                        paper = db.query(Paper).filter_by(
+                            arxiv_id=paper_info.get('arxiv_id')
+                        ).first()
+                        
+                        if paper and paper.relevance_score >= 0.8:
+                            score += 0.5
+            except Exception:
+                # Skip paper quality check if table doesn't exist
+                pass
         
         return min(score, 10.0)
     
@@ -189,17 +193,21 @@ class ExpertScorer:
             score += 2.0
             
             # Could query X posts for more detailed scoring
-            with get_db() as db:
-                for handle_info in connection.matched_social_handles[:1]:
-                    handle = handle_info.get('handle')
-                    if handle:
-                        viral_posts = db.query(XPost).filter(
-                            XPost.author_handle == handle,
-                            XPost.is_viral == True
-                        ).count()
-                        
-                        if viral_posts > 0:
-                            score += min(viral_posts * 0.5, 3.0)
+            try:
+                with get_db() as db:
+                    for handle_info in connection.matched_social_handles[:1]:
+                        handle = handle_info.get('handle')
+                        if handle:
+                            viral_posts = db.query(XPost).filter(
+                                XPost.author_handle == handle,
+                                XPost.is_viral == True
+                            ).count()
+                            
+                            if viral_posts > 0:
+                                score += min(viral_posts * 0.5, 3.0)
+            except Exception:
+                # Skip X post check if table doesn't exist
+                pass
         
         return min(score, 10.0)
     
@@ -298,9 +306,10 @@ class ExpertScorer:
             score += 1.0
         
         # Penalty for over-mentioning
-        if connection.mention_count > 3:
+        mention_count = connection.mention_count or 0
+        if mention_count > 3:
             score *= 0.7
-        elif connection.mention_count > 5:
+        elif mention_count > 5:
             score *= 0.5
         
         return score

@@ -44,8 +44,9 @@ cp .env.example .env
 # Run setup
 python scripts/setup_database.py
 
-# Start Ollama (for local LLMs)
-docker-compose up -d ollama
+# Ollama is already running
+with model qwen3:8b
+OLLAMA_HOST=127.0.0.1:11434
 
 # Run the pipeline
 python scripts/daily_run.py
@@ -145,8 +146,7 @@ coai-linkedin-content-pipeline/
 
 See issues for current tasks. We follow a simple PR workflow:
 1. Pick an issue
-2. Create a feature branch
-3. Submit PR with tests
+3. Always write pytest tests
 4. Code review and merge
 
 ## 📝 License

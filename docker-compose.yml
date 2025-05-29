@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: coai_pipeline
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Ollama for Local LLMs
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Pull models after Ollama starts
+  ollama-models:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        ollama pull llama2:7b &&
+        ollama pull mistral:7b &&
+        echo 'Models pulled successfully'
+      "
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+
+  # Celery Worker for Background Tasks
+  celery-worker:
+    build: .
+    command: celery -A src.tasks worker --loglevel=info
+    depends_on:
+      - postgres
+      - redis
+      - ollama
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/coai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./data:/app/data
+
+  # Celery Beat for Scheduled Tasks
+  celery-beat:
+    build: .
+    command: celery -A src.tasks beat --loglevel=info
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/coai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+
+  # Optional: Flower for Celery Monitoring
+  flower:
+    build: .
+    command: celery -A src.tasks flower --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      - celery-worker
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/coai_pipeline
+      - REDIS_URL=redis://redis:6379/0
+
+  # Optional: pgAdmin for Database Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@coai.org
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    profiles:
+      - dev
+
+volumes:
+  postgres_data:
+  redis_data:
+  ollama_data:
+
+networks:
+  default:
+    name: coai_network

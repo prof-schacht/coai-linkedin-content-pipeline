@@ -5,7 +5,6 @@ Pytest tests for LiteLLM configuration module.
 import os
 import pytest
 from unittest.mock import patch, MagicMock, Mock
-import litellm
 
 from config.litellm_config import LiteLLMConfig, get_litellm_config
 

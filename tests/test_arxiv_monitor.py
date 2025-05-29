@@ -35,8 +35,19 @@ class TestArxivMonitor:
         result.entry_id = "http://arxiv.org/abs/2312.00752v1"
         result.title = "Mechanistic Interpretability in AI Safety Research"
         result.summary = "This paper explores mechanistic interpretability methods for ensuring AI alignment and safety."
-        result.authors = [Mock(name="John Doe"), Mock(name="Jane Smith")]
-        result.published = datetime(2023, 12, 15, 10, 30, 0)
+        
+        # Mock authors with name attribute
+        author1 = Mock()
+        author1.name = "John Doe"
+        author2 = Mock()
+        author2.name = "Jane Smith"
+        result.authors = [author1, author2]
+        
+        # Mock published date with proper date() method
+        published_datetime = datetime(2023, 12, 15, 10, 30, 0)
+        result.published = published_datetime
+        result.published.date = Mock(return_value=published_datetime.date())
+        
         result.pdf_url = "http://arxiv.org/pdf/2312.00752v1"
         result.categories = ["cs.AI", "cs.LG"]
         return result
@@ -85,7 +96,10 @@ class TestArxivMonitor:
         result = Mock(spec=arxiv.Result)
         result.title = "Deep Learning for Image Classification"
         result.summary = "This paper presents a new CNN architecture for ImageNet."
-        result.authors = [Mock(name="Random Author")]
+        
+        author = Mock()
+        author.name = "Random Author"
+        result.authors = [author]
         
         score, keywords = monitor.calculate_relevance_score(result)
         
@@ -97,7 +111,12 @@ class TestArxivMonitor:
         result = Mock(spec=arxiv.Result)
         result.title = "Some Random Paper"
         result.summary = "Random abstract text"
-        result.authors = [Mock(name="Stuart Russell"), Mock(name="Other Author")]
+        
+        author1 = Mock()
+        author1.name = "Stuart Russell"
+        author2 = Mock()
+        author2.name = "Other Author"
+        result.authors = [author1, author2]
         
         score, keywords = monitor.calculate_relevance_score(result)
         
@@ -123,12 +142,20 @@ class TestArxivMonitor:
     @patch('arxiv.Search')
     def test_search_papers(self, mock_search_class, monitor):
         """Test paper search functionality."""
-        # Mock search results
-        mock_results = [
-            Mock(published=datetime.utcnow() - timedelta(days=1)),
-            Mock(published=datetime.utcnow() - timedelta(days=2)),
-            Mock(published=datetime.utcnow() - timedelta(days=10)),  # Too old
-        ]
+        # Mock search results with proper date() method
+        result1 = Mock()
+        result1.published = datetime.utcnow() - timedelta(days=1)
+        result1.published.date = Mock(return_value=result1.published.date())
+        
+        result2 = Mock()
+        result2.published = datetime.utcnow() - timedelta(days=2)
+        result2.published.date = Mock(return_value=result2.published.date())
+        
+        result3 = Mock()
+        result3.published = datetime.utcnow() - timedelta(days=10)
+        result3.published.date = Mock(return_value=result3.published.date())
+        
+        mock_results = [result1, result2, result3]
         
         mock_search = Mock()
         mock_search.results.return_value = mock_results
@@ -148,24 +175,24 @@ class TestArxivMonitor:
         assert "cs.CL" in call_args['query']
         assert call_args['max_results'] == 10
     
-    @patch.object(ArxivMonitor, 'llm_config')
-    def test_summarize_paper(self, mock_llm, monitor, mock_arxiv_result):
+    def test_summarize_paper(self, monitor, mock_arxiv_result):
         """Test paper summarization with LLM."""
         # Mock LLM response
         mock_response = Mock()
         mock_response.choices = [Mock(message=Mock(content="This paper introduces new methods for interpretability."))]
-        mock_llm.complete.return_value = mock_response
         
-        summary = monitor.summarize_paper(mock_arxiv_result)
-        
-        assert summary is not None
-        assert "interpretability" in summary
-        
-        # Verify LLM was called correctly
-        mock_llm.complete.assert_called_once()
-        messages = mock_llm.complete.call_args[0][0]
-        assert len(messages) == 2
-        assert "AI safety researcher" in messages[0]["content"]
+        # Patch the llm_config's complete method
+        with patch.object(monitor.llm_config, 'complete', return_value=mock_response):
+            summary = monitor.summarize_paper(mock_arxiv_result)
+            
+            assert summary is not None
+            assert "interpretability" in summary
+            
+            # Verify LLM was called correctly
+            monitor.llm_config.complete.assert_called_once()
+            messages = monitor.llm_config.complete.call_args[0][0]
+            assert len(messages) == 2
+            assert "AI safety researcher" in messages[0]["content"]
     
     @pytest.mark.usefixtures("setup_test_db")
     def test_store_paper(self, monitor, mock_arxiv_result):

@@ -1,0 +1,1 @@
+"""Database models for COAI LinkedIn Content Pipeline."""

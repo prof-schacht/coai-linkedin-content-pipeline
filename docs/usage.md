@@ -209,12 +209,77 @@ export LOG_LEVEL=DEBUG
 ## 📚 Next Steps
 
 After setup is complete, proceed to implement:
-1. arXiv paper collector (Issue #2)
+1. ✅ arXiv paper collector (Issue #2) - COMPLETED
 2. X.com web scraper (Issue #3)
 3. CrewAI agents (Issue #4)
 4. LinkedIn network analyzer (Issue #5)
 5. Content pipeline (Issue #6)
 6. Monitoring system (Issue #7)
+
+## 🔬 arXiv Paper Collection
+
+The arXiv paper collector monitors cs.AI and cs.CL categories for papers related to AI safety, control, and interpretability.
+
+### Features
+
+- **Automatic Collection**: Fetches papers from specified categories daily
+- **Relevance Scoring**: Calculates relevance based on keywords and authors
+- **LLM Summarization**: Generates concise summaries for relevant papers
+- **Cross-referencing**: Extracts arXiv paper mentions from text
+- **Database Storage**: Stores papers with metadata and search indexes
+
+### Running the Collector
+
+```bash
+# Basic collection (uses default settings)
+python scripts/fetch_arxiv_papers.py
+
+# Dry run - see what would be collected
+python scripts/fetch_arxiv_papers.py --dry-run
+
+# Collect papers from specific date
+python scripts/fetch_arxiv_papers.py --date 2024-01-01
+
+# Collect papers from last N days
+python scripts/fetch_arxiv_papers.py --days 14
+
+# Show database statistics only
+python scripts/fetch_arxiv_papers.py --stats-only
+```
+
+### Setting Up Daily Collection
+
+```bash
+# Run the cron setup script
+./scripts/cron_setup.sh
+
+# Or manually add to crontab:
+# Daily at 2 AM UTC
+0 2 * * * cd /path/to/project && source .venv/bin/activate && python scripts/fetch_arxiv_papers.py
+```
+
+### Testing
+
+```bash
+# Run arXiv collector tests
+pytest tests/test_arxiv_monitor.py -v
+
+# Run with coverage
+pytest tests/test_arxiv_monitor.py --cov=src.collectors.arxiv_monitor
+```
+
+### Database Management
+
+```bash
+# Run migrations
+alembic upgrade head
+
+# Create new migration after model changes
+alembic revision --autogenerate -m "Description"
+
+# View papers in database
+psql -U codeuser -d coai_pipeline -c "SELECT arxiv_id, title, relevance_score FROM papers ORDER BY submission_date DESC LIMIT 10;"
+```
 
 ## 🤝 Support
 
